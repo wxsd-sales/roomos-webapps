@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=600, height=600" />
+    <title>Join Meeting Widget</title>
+    <style>
+      * {
+        color: #ffffff;
+      }
+
+      h1 {
+        margin-bottom: 0px;
+      }
+
+      h3 {
+        margin-top: 0px;
+        margin-bottom: 3px;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        height: 600px;
+        width: 600px;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      header {
+        width: 100%;
+        text-align: center;
+        background-color: #4d4c4c;
+        padding: 0px 0;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      footer {
+        width: 100%;
+        text-align: center;
+        background-color: #4d4d4d;
+        padding: 10px 0;
+        box-shadow: 0px -2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        background-color: #4d4c4c;
+      }
+
+      .content p {
+        /* text-align: center; */
+        /* width: 500px;
+        font-size: 18px;
+        border: solid;
+        border-color: rgb(146, 145, 145);
+        border-radius: 20px;
+        padding: 20px; */
+        margin-top: 3px;
+        margin-bottom: 3px;
+      }
+
+      .step {
+        /* text-align: center; */
+        text-align: center;
+        width: 500px;
+        font-size: 18px;
+        border: solid;
+        border-color: rgb(146, 145, 145);
+        border-radius: 20px;
+        padding: 10px;
+        margin-top: 3px;
+        margin-bottom: 3px;
+      }
+
+      .icon-middle {
+        vertical-align: middle;
+        font-size: 30px;
+      }
+
+      .container {
+        position: relative;
+        text-align: center;
+        color: white;
+      }
+      /* Top left text */
+      .workspace-name-overlay {
+        position: absolute;
+        /* top: 80px;
+        left: 16px; */
+        width: 200px;
+        max-width: 200px;
+        max-height: 22px;
+        font-size: 20px;
+        top: 20%;
+        left: 47%;
+        transform: translate(-50%, 0%);
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+    </style>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+    <link
+      href="
+    https://cdn.jsdelivr.net/npm/@momentum-design/icons@0.25.0/dist/data/MomentumFontIcons.min.css
+    "
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header id="header">
+      <h1>Join Your Meeting</h1>
+      <h3>
+        From Mobile
+        <i class="icon icon-responsive-mobile-bold icon-middle"></i> or Laptop
+        <i class="icon icon-laptop-bold icon-middle"></i>
+      </h3>
+    </header>
+
+    <div class="content">
+      <div class="step">
+        <p>
+          Select
+          <strong
+            ><i class="icon icon-device-connection-bold icon-middle"></i>
+            Connect to a device</strong
+          >
+          icon on your Webex App
+        </p>
+        <img src="images/image.png" alt="Connect" style="width: 30%" />
+      </div>
+
+      <div class="step">
+        <p>
+          Select <strong>Connect</strong> beside
+          <strong class="workspace-name">Workspace Name</strong>
+        </p>
+
+        <div class="container">
+          <img src="images/connect.png" alt="Connect" style="width: 50%" />
+
+          <div class="workspace-name-overlay">
+            <strong class="workspace-name">Workspace Name</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <p>Select the Join button beside your meeting</p>
+
+        <img src="images/join.png" alt="Connect" style="width: 50%" />
+      </div>
+
+      <!-- 
+      <div class="container">
+        <img src="images/connect.png" alt="Connect" style="width: 100%" />
+
+        <div class="workspace-name"><strong>Workspace Name</strong></div>
+      </div> -->
+    </div>
+
+    <!-- <footer id="footer">
+      <p>Footer Section</p>
+    </footer> -->
+
+    <script>
+      const { deviceName } = getHashParameters();
+
+      if (deviceName && deviceName != "") changeWorkspaceName(deviceName);
+
+      function changeWorkspaceName(deviceName) {
+        const nameElements = document.getElementsByClassName("workspace-name");
+        for (let i = 0; i < nameElements.length; i++) {
+            console.log(deviceName);
+          nameElements[i].innerHTML = deviceName;
+        }
+      }
+
+      function getHashParameters() {
+        let hashString = location?.hash;
+        if (!hashString || hashString == '') return {}
+        const splitHash =  hashString.substring(1).split("&");
+        let hashes = {};
+        for (let i = 0; i < splitHash.length; i++) {
+          const [key, value] = splitHash[i].split("=");
+          if(key){
+            hashes[decodeURI(key)] = decodeURI(value) ?? "";
+          }
+        }
+        return hashes;
+      }
+
+    </script>
+  </body>
+</html>

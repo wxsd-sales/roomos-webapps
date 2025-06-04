@@ -1,37 +1,15 @@
 # RoomOS Web Apps
 
-This is a collection of example Web Apps for Cisco Collaboration Devices for Signage and Kiosk Use Cases
+This is a collection of example Web Apps for Cisco Collaboration Devices for Signage, Kiosk, Widget Use Cases
 
 
 ## Overview
 
-Go into detail about the implementation.   3-4 Sentences
-**HOW** the implementation works. You need not give end-to-end details but an overview.
+Collection Overview:
 
+* [Video Signage](video-signage/README.md) - Plays YouTube videos or playlists on loop
+* [Join Meeting Widget](join-meeting-widget/README.md) - Guide your users on how to join their meetings
 
-
-## Setup
-
-### Prerequisites & Dependencies: 
-
-- Is this dependant on having another repo
-- Insert pre-requisites in bullets
-- Insert pre-requisite here  Also state any assumptions that you may have made about the user.
-- Limit nested bullets
-
-
-<!-- GETTING STARTED -->
-
-### Installation Steps:
-1.  Include step one here
-    ```sh
-    insert line of code here if applicable
-    ```
-2.  Insert step two here
-    Insert screenshot, if applicable
-    
-    
-    
 ## Demo
 
 *For more demos & PoCs like this, check out our [Webex Labs site](https://collabtoolbox.cisco.com/webex-labs).
