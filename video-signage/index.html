@@ -28,10 +28,25 @@
 
       let player;
       function onYouTubeIframeAPIReady() {
-        player = new YT.Player("player", {
+        if(videoId){
+            player = new YT.Player("player", {
+            height: "1080",
+            width: "1920",
+            videoId,
+            playerVars: {
+              autoplay: 1,
+              loop: 1,
+              controls: 0
+            },
+            events: {
+              onReady: onPlayerReady,
+              onStateChange: onPlayerStateChange,
+            },
+          });
+        } else {
+          player = new YT.Player("player", {
           height: "1080",
           width: "1920",
-          videoId,
           playerVars: {
             autoplay: 1,
             loop: 1,
@@ -43,6 +58,8 @@
             onStateChange: onPlayerStateChange,
           },
         });
+        }
+         
       }
 
       function onPlayerReady(event) {
