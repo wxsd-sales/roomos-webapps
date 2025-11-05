@@ -77,6 +77,10 @@
           loop == 1
         ) {
           console.log("Player Ended - Sending PlayVideo");
+
+          if(start > 0){
+            player.seekTo(start);
+          }
           player.playVideo();
         }
       }
