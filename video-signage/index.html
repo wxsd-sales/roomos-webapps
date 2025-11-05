@@ -10,7 +10,6 @@
     </style>
   </head>
   <body>
-
     <div id="player"></div>
 
     <script>
@@ -20,6 +19,8 @@
       const tag = document.createElement("script");
 
       const videoId = hashes?.videoId;
+      const startSeconds = hashes?.start ?? 0;
+      const loop = hashes?.loop ?? 0;
       const list = hashes?.list ?? defaultList;
 
       tag.src = "https://www.youtube.com/iframe_api";
@@ -28,15 +29,15 @@
 
       let player;
       function onYouTubeIframeAPIReady() {
-        if(videoId){
-            player = new YT.Player("player", {
+        if (videoId) {
+          player = new YT.Player("player", {
             height: "1080",
             width: "1920",
             videoId,
             playerVars: {
               autoplay: 1,
-              loop: 1,
-              controls: 0
+              loop,
+              controls: 0,
             },
             events: {
               onReady: onPlayerReady,
@@ -45,21 +46,20 @@
           });
         } else {
           player = new YT.Player("player", {
-          height: "1080",
-          width: "1920",
-          playerVars: {
-            autoplay: 1,
-            loop: 1,
-            controls: 0,
-            list,
-          },
-          events: {
-            onReady: onPlayerReady,
-            onStateChange: onPlayerStateChange,
-          },
-        });
+            height: "1080",
+            width: "1920",
+            playerVars: {
+              autoplay: 1,
+              loop: 1,
+              controls: 0,
+              list,
+            },
+            events: {
+              onReady: onPlayerReady,
+              onStateChange: onPlayerStateChange,
+            },
+          });
         }
-         
       }
 
       function onPlayerReady(event) {
@@ -69,6 +69,15 @@
 
       function onPlayerStateChange(event) {
         console.log("Player State Change:", event.data);
+
+        if (
+          event.data == YT.PlayerState.ENDED &&
+          videoId != undefined &&
+          loop == 1
+        ) {
+          console.log("Player Ended - Sending PlayVideo");
+          player.playVideo();
+        }
       }
       function stopVideo() {
         player.stopVideo();
@@ -76,12 +85,12 @@
 
       function getHashParameters() {
         let hashString = location?.hash;
-        if (!hashString || hashString == '') return {}
-        const splitHash =  hashString.substring(1).split("&");
+        if (!hashString || hashString == "") return {};
+        const splitHash = hashString.substring(1).split("&");
         let hashes = {};
         for (let i = 0; i < splitHash.length; i++) {
           const [key, value] = splitHash[i].split("=");
-          if(key){
+          if (key) {
             hashes[decodeURI(key)] = decodeURI(value) ?? "";
           }
         }
