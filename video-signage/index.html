@@ -16,11 +16,13 @@
       const defaultList = "PL_YnWo4XhzTcEQ1nFCzvxfklMv2kHbl9-";
 
       const hashes = getHashParameters();
+
+      const debug = hashes?.debug ?? false;
       const tag = document.createElement("script");
 
       const videoId = hashes?.videoId;
-      const start = hashes?.start ?? 0;
-      const loop = hashes?.loop ?? 0;
+      const start = Number(hashes?.start ?? 0) || 0;
+      const loop = Number(hashes?.loop ?? 0) || 0;
       const list = hashes?.list ?? defaultList;
 
       tag.src = "https://www.youtube.com/iframe_api";
@@ -39,11 +41,14 @@
               loop,
               controls: 0,
               start,
-              rel: 0
+              rel: 0,
+              // YouTube only loops a single video when playlist is also set to that video id
+              ...(loop === 1 ? { playlist: videoId } : {}),
             },
             events: {
               onReady: onPlayerReady,
               onStateChange: onPlayerStateChange,
+              onError: onPlayerError,
             },
           });
         } else {
@@ -60,18 +65,68 @@
             events: {
               onReady: onPlayerReady,
               onStateChange: onPlayerStateChange,
+              onError: onPlayerError,
             },
           });
         }
       }
 
+      // How long to wait after onReady for playback to begin before retrying
+      const PLAY_WATCHDOG_MS = 6000;
+      let playWatchdog;
+
+      const stateNames = {
+        "-1": "UNSTARTED",
+        0: "ENDED",
+        1: "PLAYING",
+        2: "PAUSED",
+        3: "BUFFERING",
+        5: "CUED",
+      };
+
+      const errorMessages = {
+        2: "Invalid video ID / parameter",
+        5: "HTML5 player error",
+        100: "Video not found, private, or removed",
+        101: "Embedding disabled by the video owner",
+        150: "Embedding disabled by the video owner",
+      };
+
+      function startPlayWatchdog(event) {
+        clearTimeout(playWatchdog);
+        playWatchdog = setTimeout(function () {
+          if (player?.getPlayerState?.() === YT.PlayerState.PLAYING) return;
+          console.warn(
+            "Playback did not start within",
+            PLAY_WATCHDOG_MS,
+            "ms - retrying"
+          );
+          if (videoId) {
+            player.loadVideoById({ videoId, startSeconds: start });
+          }
+          event.target.playVideo();
+        }, PLAY_WATCHDOG_MS);
+      }
+
       function onPlayerReady(event) {
+        if(debug){
+          console.debug("onPlayerReady event:", event);
+        }
         console.log("Player Ready - Sending PlayVideo");
         event.target.playVideo();
+        startPlayWatchdog(event);
       }
 
       function onPlayerStateChange(event) {
-        console.log("Player State Change:", event.data);
+        console.log(
+          "Player State Change:",
+          stateNames[event.data] ?? "UNKNOWN",
+          `(${event.data})`
+        );
+
+        if (event.data === YT.PlayerState.PLAYING) {
+          clearTimeout(playWatchdog);
+        }
 
         if (
           event.data == YT.PlayerState.ENDED &&
@@ -86,6 +141,17 @@
           player.playVideo();
         }
       }
+
+      function onPlayerError(event) {
+        const code = event.data;
+        console.error(
+          "Player Error:",
+          code,
+          "-",
+          errorMessages[code] ?? "Unknown error"
+        );
+      }
+
       function stopVideo() {
         player.stopVideo();
       }
