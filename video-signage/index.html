@@ -71,9 +71,10 @@
         }
       }
 
-      // How long to wait after onReady for playback to begin before retrying
-      const PLAY_WATCHDOG_MS = 6000;
-      let playWatchdog;
+      // How often to check that playback is actually progressing
+      const PLAYBACK_MONITOR_MS = 2000;
+      let playbackMonitor;
+      let lastTime = -1;
 
       const stateNames = {
         "-1": "UNSTARTED",
@@ -92,20 +93,35 @@
         150: "Embedding disabled by the video owner",
       };
 
-      function startPlayWatchdog(event) {
-        clearTimeout(playWatchdog);
-        playWatchdog = setTimeout(function () {
-          if (player?.getPlayerState?.() === YT.PlayerState.PLAYING) return;
-          console.warn(
-            "Playback did not start within",
-            PLAY_WATCHDOG_MS,
-            "ms - retrying"
-          );
-          if (videoId) {
-            player.loadVideoById({ videoId, startSeconds: start });
+      // The IFrame API has no "buffering finished" event, and the PLAYING state
+      // can be reported while playback is actually frozen. The only reliable
+      // ground truth is whether getCurrentTime() keeps advancing, so we poll and
+      // nudge playVideo() whenever the player is stuck (buffering, unstarted, or
+      // "playing" but not progressing).
+      function startPlaybackMonitor() {
+        clearInterval(playbackMonitor);
+        lastTime = -1;
+        playbackMonitor = setInterval(function () {
+          if (!player?.getPlayerState) return;
+
+          const state = player.getPlayerState();
+          const time = player.getCurrentTime?.() ?? 0;
+          const stalled = time === lastTime;
+          lastTime = time;
+
+          const notProgressing =
+            state === YT.PlayerState.BUFFERING ||
+            state === YT.PlayerState.UNSTARTED ||
+            (state === YT.PlayerState.PLAYING && stalled);
+
+          if (notProgressing) {
+            console.warn("Playback not progressing - nudging playVideo()", {
+              state: stateNames[state] ?? "UNKNOWN",
+              time,
+            });
+            player.playVideo();
           }
-          event.target.playVideo();
-        }, PLAY_WATCHDOG_MS);
+        }, PLAYBACK_MONITOR_MS);
       }
 
       function onPlayerReady(event) {
@@ -114,7 +130,7 @@
         }
         console.log("Player Ready - Sending PlayVideo");
         event.target.playVideo();
-        startPlayWatchdog(event);
+        startPlaybackMonitor();
       }
 
       function onPlayerStateChange(event) {
@@ -123,10 +139,6 @@
           stateNames[event.data] ?? "UNKNOWN",
           `(${event.data})`
         );
-
-        if (event.data === YT.PlayerState.PLAYING) {
-          clearTimeout(playWatchdog);
-        }
 
         if (
           event.data == YT.PlayerState.ENDED &&
