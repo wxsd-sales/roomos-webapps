@@ -3,9 +3,25 @@
   <head>
     <title>Video Signage</title>
     <style>
+      html,
       body {
         background-color: black;
         margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Prevent any click/tap/hover from ever surfacing YouTube's
+         controls, title overlay, or end screen on touch displays. */
+      #player {
+        pointer-events: none;
       }
     </style>
   </head>
@@ -14,6 +30,23 @@
 
     <script>
       const defaultList = "PL_YnWo4XhzTcEQ1nFCzvxfklMv2kHbl9-";
+
+      // Standard YouTube video/playlist aspect ratio
+      const ASPECT_RATIO = 16 / 9;
+
+      // Returns the largest width/height that fits within the window
+      // while preserving the video's aspect ratio (letterboxed, not cropped).
+      function getPlayerSize() {
+        let width = window.innerWidth;
+        let height = width / ASPECT_RATIO;
+
+        if (height > window.innerHeight) {
+          height = window.innerHeight;
+          width = height * ASPECT_RATIO;
+        }
+
+        return { width: Math.floor(width), height: Math.floor(height) };
+      }
 
       const hashes = getHashParameters();
 
@@ -31,15 +64,22 @@
 
       let player;
       function onYouTubeIframeAPIReady() {
+        const { width, height } = getPlayerSize();
+
         if (videoId) {
           player = new YT.Player("player", {
-            height: "1080",
-            width: "1920",
+            height,
+            width,
             videoId,
             playerVars: {
               autoplay: 1,
               loop,
               controls: 0,
+              disablekb: 1,
+              fs: 0,
+              iv_load_policy: 3,
+              cc_load_policy: 0,
+              modestbranding: 1,
               start,
               rel: 0,
               // YouTube only loops a single video when playlist is also set to that video id
@@ -53,12 +93,17 @@
           });
         } else {
           player = new YT.Player("player", {
-            height: "1080",
-            width: "1920",
+            height,
+            width,
             playerVars: {
               autoplay: 1,
               loop: 1,
               controls: 0,
+              disablekb: 1,
+              fs: 0,
+              iv_load_policy: 3,
+              cc_load_policy: 0,
+              modestbranding: 1,
               list,
               rel: 0
             },
@@ -69,6 +114,18 @@
             },
           });
         }
+
+        window.addEventListener("resize", onWindowResize);
+      }
+
+      let resizeTimeout;
+      function onWindowResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function () {
+          if (!player?.setSize) return;
+          const { width, height } = getPlayerSize();
+          player.setSize(width, height);
+        }, 100);
       }
 
       // How often to check that playback is actually progressing
