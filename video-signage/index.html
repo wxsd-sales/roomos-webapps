@@ -23,10 +23,50 @@
       #player {
         pointer-events: none;
       }
+
+      /* Seasonal theme overlay - sits above the video, never intercepts input */
+      #theme-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      #theme-overlay svg { overflow: visible; }
+      #theme-overlay > * {
+        position: absolute;
+        display: block;
+        filter: drop-shadow(0 0.4vh 0.8vh rgba(0, 0, 0, 0.45));
+      }
+      /* Height follows the viewBox aspect ratio (never cropped); capped for ultra-wide screens */
+      .xmas-garland { top: 0; left: 0; width: 100%; height: auto; max-height: 24vh; }
+      #theme-overlay > .xmas-stockings {
+        top: 1.5vh;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: flex-start;
+        --size: min(11vh, calc(86vw / var(--n)));
+      }
+      .xmas-stockings svg { width: var(--size); height: calc(var(--size) * 1.4); display: block; }
+      .xmas-tree { right: 1.5vw; bottom: 0; height: 42vh; }
+      .xmas-snowman { left: 1.5vw; bottom: 0; height: 36vh; }
+      .hw-pumpkins { left: 1vw; bottom: 0; height: 24vh; }
+      .hw-web { top: 0; right: 0; height: min(33vh, 46vw); }
+      #theme-overlay > .hw-candy {
+        right: 2vw;
+        bottom: 1.5vh;
+        display: flex;
+        align-items: flex-end;
+        --size: min(10vh, calc(46vw / (var(--n) * 1.5)));
+      }
+      .hw-candy svg { width: calc(var(--size) * 1.5); height: var(--size); display: block; }
+      .hw-ghost { top: 3vh; left: 3vw; height: 24vh; }
     </style>
   </head>
   <body>
     <div id="player"></div>
+    <div id="theme-overlay"></div>
 
     <script>
       const defaultList = "PL_YnWo4XhzTcEQ1nFCzvxfklMv2kHbl9-";
@@ -238,6 +278,272 @@
         }
         return hashes;
       }
+    </script>
+
+    <script>
+      // ---------------------------------------------------------------
+      // Seasonal themes
+      //   #theme=december | october | auto   (omit for no theme)
+      //   #company=EXAMPLE                    (letters on the stockings)
+      // "december"/"october" always force that theme. "auto" only applies
+      // a theme when the current month matches (Oct / Dec).
+      // ---------------------------------------------------------------
+      (function () {
+        const query = Object.fromEntries(new URLSearchParams(location.search));
+        const params = { ...query, ...hashes };
+        const requested = String(params.theme ?? "").trim().toLowerCase();
+        const company = String(params.company ?? "CISCO").trim().slice(0, 16) || "CISCO";
+        const overlay = document.getElementById("theme-overlay");
+
+        const ALIASES = {
+          december: "december", christmas: "december", xmas: "december",
+          october: "october", halloween: "october",
+          auto: "auto",
+        };
+
+        function resolveTheme() {
+          const t = ALIASES[requested];
+          if (t === "auto") {
+            const month = new Date().getMonth(); // 0-based
+            if (month === 11) return "december";
+            if (month === 9) return "october";
+            return null;
+          }
+          return t ?? null;
+        }
+
+        const esc = (s) =>
+          s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+        const svg = (cls, viewBox, inner, extra = "") =>
+          `<svg class="${cls}" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" ${extra}>${inner}</svg>`;
+
+        function star(cx, cy, R, r, fill) {
+          const pts = [];
+          for (let i = 0; i < 10; i++) {
+            const a = (Math.PI / 5) * i - Math.PI / 2;
+            const rad = i % 2 ? r : R;
+            pts.push(`${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`);
+          }
+          return `<polygon points="${pts.join(" ")}" fill="${fill}" stroke="#d99a00" stroke-width="2" stroke-linejoin="round"/>`;
+        }
+
+        // ---------------- December / Christmas ----------------
+
+        function garland() {
+          const colors = ["#ff4d4d", "#ffd23f", "#4dd0ff", "#5be37d", "#ff8ad8"];
+          let out = "";
+          let path = "M0,6";
+          let bulbs = "";
+          let n = 0;
+          for (let x = 0; x < 1600; x += 200) {
+            path += ` Q${x + 100},52 ${x + 200},6`;
+            for (let t = 0.15; t < 1; t += 0.2) {
+              const bx = (1 - t) * (1 - t) * x + 2 * (1 - t) * t * (x + 100) + t * t * (x + 200);
+              const by = (1 - t) * (1 - t) * 6 + 2 * (1 - t) * t * 52 + t * t * 6;
+              const c = colors[n++ % colors.length];
+              bulbs += `<circle cx="${bx.toFixed(1)}" cy="${(by + 7).toFixed(1)}" r="7" fill="${c}"/>` +
+                `<rect x="${(bx - 2.5).toFixed(1)}" y="${(by - 1).toFixed(1)}" width="5" height="6" fill="#2b2b2b"/>`;
+            }
+          }
+          out += `<path d="${path}" fill="none" stroke="#1f3d2b" stroke-width="3"/>` + bulbs;
+
+          const ornament = (x, len, c, r) =>
+            `<line x1="${x}" y1="0" x2="${x}" y2="${len}" stroke="#e8d28a" stroke-width="2"/>` +
+            `<rect x="${x - 5}" y="${len}" width="10" height="8" rx="2" fill="#d9b44a"/>` +
+            `<circle cx="${x}" cy="${len + 8 + r}" r="${r}" fill="${c}"/>` +
+            `<ellipse cx="${x - r * 0.35}" cy="${len + 8 + r * 0.6}" rx="${r * 0.22}" ry="${r * 0.35}" fill="#fff" opacity="0.55"/>` +
+            `<path d="M${x - r},${len + 8 + r} Q${x},${len + 8 + r * 1.35} ${x + r},${len + 8 + r}" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/>`;
+          const ornaments = [
+            [60, 70, "#d62828", 24], [160, 100, "#f6c445", 20], [260, 60, "#2a9d8f", 22],
+            [360, 90, "#e63946", 18], [450, 55, "#6a4c93", 20],
+            [1150, 55, "#6a4c93", 20], [1240, 90, "#e63946", 18], [1340, 60, "#2a9d8f", 22],
+            [1440, 100, "#f6c445", 20], [1540, 70, "#d62828", 24],
+          ];
+          out += ornaments.map((o) => ornament(...o)).join("");
+          return svg("xmas-garland", "0 0 1600 170", out, 'preserveAspectRatio="xMidYMin meet"');
+        }
+
+        function stockings(text) {
+          const chars = [...text.toUpperCase()];
+          const letters = chars.filter((c) => c.trim() !== "").length;
+          let i = 0;
+          const items = chars.map((ch) => {
+            const rope = '<line x1="0" y1="4" x2="100" y2="4" stroke="#c9a227" stroke-width="3"/>';
+            if (ch.trim() === "") return `<svg viewBox="0 0 100 140" style="width:calc(var(--size)*.4)">${rope}</svg>`;
+            const red = i++ % 2 === 0;
+            const body = red ? "#c62828" : "#2e7d32";
+            return `<svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">${rope}` +
+              `<path d="M45,4 Q45,16 45,24" stroke="#c9a227" stroke-width="3" fill="none"/>` +
+              `<path d="M25,28 L65,28 L65,85 Q65,100 80,108 Q96,116 93,128 Q89,141 72,138 Q55,136 40,118 Q25,100 25,85 Z" fill="${body}" stroke="rgba(0,0,0,.25)" stroke-width="2"/>` +
+              `<path d="M72,138 Q89,141 93,128 Q96,118 86,112 Q80,128 72,138 Z" fill="#fff" opacity=".9"/>` +
+              `<ellipse cx="33" cy="104" rx="9" ry="7" fill="#fff" opacity=".9" transform="rotate(35 33 104)"/>` +
+              `<rect x="20" y="22" width="50" height="17" rx="8" fill="#fff"/>` +
+              `<text x="45" y="76" text-anchor="middle" font-family="Arial Black, Helvetica, Arial, sans-serif" font-weight="900" font-size="34" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width="1">${esc(ch)}</text>` +
+              `</svg>`;
+          });
+          return `<div class="xmas-stockings" style="--n:${Math.max(letters, 1)}">${items.join("")}</div>`;
+        }
+
+        function present(x, y, w, h, c, r) {
+          return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${c}"/>` +
+            `<rect x="${x + w / 2 - 4}" y="${y}" width="8" height="${h}" fill="${r}"/>` +
+            `<rect x="${x}" y="${y + h / 2 - 4}" width="${w}" height="8" fill="${r}"/>` +
+            `<ellipse cx="${x + w / 2 - 8}" cy="${y - 4}" rx="9" ry="6" fill="none" stroke="${r}" stroke-width="4"/>` +
+            `<ellipse cx="${x + w / 2 + 8}" cy="${y - 4}" rx="9" ry="6" fill="none" stroke="${r}" stroke-width="4"/>`;
+        }
+
+        function tree() {
+          let t = `<ellipse cx="150" cy="368" rx="140" ry="9" fill="rgba(0,0,0,.25)"/>`;
+          t += `<rect x="135" y="285" width="30" height="45" fill="#6b4226"/>`;
+          t += `<polygon points="150,150 28,300 272,300" fill="#14602b"/>`;
+          t += `<polygon points="150,90 48,215 252,215" fill="#1a7a37"/>`;
+          t += `<polygon points="150,36 72,140 228,140" fill="#22994a"/>`;
+          t += `<path d="M96,118 Q150,150 204,118 M70,190 Q150,235 230,190 M52,268 Q150,325 248,268" fill="none" stroke="#ffd23f" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>`;
+          const balls = [[130,95,"#e63946"],[170,120,"#ffd23f"],[112,175,"#4dd0ff"],[185,185,"#e63946"],[150,160,"#ff8ad8"],
+            [85,250,"#ffd23f"],[140,245,"#e63946"],[200,262,"#4dd0ff"],[110,290,"#ff8ad8"],[225,285,"#ffd23f"],[70,285,"#4dd0ff"]];
+          t += balls.map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="9" fill="${c}"/><circle cx="${x - 3}" cy="${y - 3}" r="2.5" fill="#fff" opacity=".7"/>`).join("");
+          t += star(150, 36, 24, 10, "#ffd23f");
+          t += present(30, 330, 62, 38, "#c62828", "#ffd23f");
+          t += present(100, 340, 48, 28, "#1565c0", "#fff");
+          t += present(170, 322, 56, 46, "#2e7d32", "#ffd23f");
+          t += present(238, 344, 40, 24, "#8e24aa", "#ffe082");
+          return svg("xmas-tree", "0 0 300 380", t);
+        }
+
+        function snowman() {
+          const snow = 'fill="#fff" stroke="#cfd8e3" stroke-width="3"';
+          let t = `<ellipse cx="100" cy="312" rx="85" ry="8" fill="rgba(0,0,0,.2)"/>`;
+          // arms
+          t += `<g stroke="#6b4226" stroke-width="5" stroke-linecap="round" fill="none">` +
+            `<path d="M62,172 L18,140 M32,150 L26,130 M30,148 L12,150"/>` +
+            `<path d="M138,172 L182,145 M168,153 L176,134 M170,152 L188,158"/></g>`;
+          t += `<circle cx="100" cy="255" r="55" ${snow}/><circle cx="100" cy="175" r="40" ${snow}/><circle cx="100" cy="115" r="30" ${snow}/>`;
+          // buttons
+          t += [168, 186, 204].map((y) => `<circle cx="100" cy="${y}" r="4" fill="#222"/>`).join("");
+          // face
+          t += `<circle cx="90" cy="108" r="3.5" fill="#222"/><circle cx="110" cy="108" r="3.5" fill="#222"/>`;
+          t += `<polygon points="100,115 128,120 100,125" fill="#ff8f1f"/>`;
+          t += [[84,124],[89,129],[100,131],[111,129],[116,124]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" fill="#222"/>`).join("");
+          // hat
+          t += `<rect x="78" y="52" width="44" height="42" rx="3" fill="#222"/><rect x="78" y="76" width="44" height="9" fill="#c62828"/>` +
+            `<rect x="66" y="92" width="68" height="8" rx="4" fill="#222"/>`;
+          // scarf
+          t += `<rect x="66" y="136" width="68" height="16" rx="8" fill="#c62828"/>` +
+            `<path d="M108,146 L128,146 L134,196 L114,198 Z" fill="#c62828"/>` +
+            `<path d="M110,160 L131,160 M111,174 L132,174 M112,188 L133,188" stroke="#fff" stroke-width="4"/>` +
+            `<path d="M78,137 L78,151 M92,139 L92,153" stroke="#fff" stroke-width="4"/>`;
+          return svg("xmas-snowman", "0 0 200 320", t);
+        }
+
+        // ---------------- October / Halloween ----------------
+
+        function pumpkin(cx, cy, s, face) {
+          let g = `<g transform="translate(${cx} ${cy}) scale(${s})">`;
+          g += `<path d="M-6,-55 Q-4,-78 10,-80 L16,-72 Q6,-70 6,-55 Z" fill="#5a7d1f"/>`;
+          g += [-40, 40, -20, 20, 0].map((x) =>
+            `<ellipse cx="${x}" cy="0" rx="${Math.abs(x) === 40 ? 38 : 34}" ry="${Math.abs(x) === 40 ? 52 : 60}" fill="${x === 0 ? '#ff8c1a' : '#f2760a'}" stroke="#b85200" stroke-width="3"/>`).join("");
+          const glow = 'fill="#ffd23f"';
+          if (face === 1) {
+            g += `<polygon points="-38,-12 -16,-12 -27,-34" ${glow}/><polygon points="16,-12 38,-12 27,-34" ${glow}/>` +
+              `<polygon points="0,0 -8,14 8,14" ${glow}/>` +
+              `<path d="M-42,22 L-28,38 L-14,26 L0,40 L14,26 L28,38 L42,22 L30,50 Q0,62 -30,50 Z" ${glow}/>`;
+          } else {
+            g += `<circle cx="-22" cy="-14" r="10" ${glow}/><circle cx="22" cy="-14" r="10" ${glow}/>` +
+              `<path d="M-32,16 Q0,60 32,16 Q0,30 -32,16 Z" ${glow}/>`;
+          }
+          return g + "</g>";
+        }
+
+        function pumpkins() {
+          const t = `<ellipse cx="170" cy="196" rx="165" ry="6" fill="rgba(0,0,0,.25)"/>` +
+            pumpkin(255, 150, 0.8, 2) + pumpkin(105, 123, 1.2, 1);
+          return svg("hw-pumpkins", "0 0 340 200", t);
+        }
+
+        function cobwebSpider() {
+          const cx = 200, cy = 0;
+          const pt = (r, deg) => [cx - r * Math.cos((deg * Math.PI) / 180), cy + r * Math.sin((deg * Math.PI) / 180)];
+          const angles = [0, 15, 30, 45, 60, 75, 90];
+          let t = `<g fill="none" stroke="#f1f1f8" stroke-linecap="round" opacity=".9">`;
+          t += `<g stroke-width="2.2">` + angles.map((a) => { const [x, y] = pt(195, a); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }).join("") + `</g>`;
+          t += `<g stroke-width="1.6">`;
+          for (const r of [35, 70, 105, 140, 175]) {
+            let d = "M" + pt(r, 0).map((v) => v.toFixed(1)).join(",");
+            for (let i = 1; i < angles.length; i++) {
+              const [qx, qy] = pt(r * 0.86, (angles[i - 1] + angles[i]) / 2);
+              const [x, y] = pt(r, angles[i]);
+              d += ` Q${qx.toFixed(1)},${qy.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`;
+            }
+            t += `<path d="${d}"/>`;
+          }
+          t += `</g></g>`;
+          // spider swinging on a thread from the web
+          const [sx, sy] = pt(105, 45);
+          const legs = [-1, 1].map((side) => [[-14,-8,-30,-22,-36,-6],[-14,-2,-34,-6,-40,12],[-14,4,-32,14,-36,32],[-12,10,-26,26,-28,42]]
+            .map(([a, b, c, d, e, f]) => `<path d="M${side * a},${b} Q${side * c},${d} ${side * e},${f}"/>`).join("")).join("");
+          t += `<g><animateTransform attributeName="transform" type="rotate" values="-5 ${sx.toFixed(1)} ${sy.toFixed(1)};5 ${sx.toFixed(1)} ${sy.toFixed(1)};-5 ${sx.toFixed(1)} ${sy.toFixed(1)}" dur="4s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1" keyTimes="0;.5;1"/>` +
+            `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${(sy + 72).toFixed(1)}" stroke="#f1f1f8" stroke-width="1.6"/>` +
+            `<g transform="translate(${sx.toFixed(1)} ${(sy + 100).toFixed(1)})">` +
+            `<g fill="none" stroke="#8a8aa0" stroke-width="3" stroke-linecap="round" transform="translate(0 4)">${legs}</g>` +
+            `<ellipse cx="0" cy="12" rx="13" ry="16" fill="#1a1a1a" stroke="#6b6b80" stroke-width="1.5"/><circle cx="0" cy="-8" r="9" fill="#1a1a1a" stroke="#6b6b80" stroke-width="1.5"/>` +
+            `<circle cx="-3.5" cy="-10" r="2.2" fill="#ff3b3b"/><circle cx="3.5" cy="-10" r="2.2" fill="#ff3b3b"/>` +
+            `<path d="M-5,8 L0,18 L5,8 Z" fill="#c62828"/></g></g>`;
+          return svg("hw-web", "0 0 200 230", t);
+        }
+
+        function ghost() {
+          const t = `<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -10;0 0" dur="3.5s" repeatCount="indefinite"/>` +
+            `<path d="M20,190 V80 C20,38 50,10 80,10 C110,10 140,38 140,80 V190 L120,172 L100,190 L80,172 L60,190 L40,172 Z" fill="#f4f6ff" stroke="#c5cbe6" stroke-width="3" stroke-linejoin="round"/>` +
+            `<ellipse cx="16" cy="112" rx="14" ry="8" fill="#f4f6ff" stroke="#c5cbe6" stroke-width="3" transform="rotate(-25 16 112)"/>` +
+            `<ellipse cx="144" cy="112" rx="14" ry="8" fill="#f4f6ff" stroke="#c5cbe6" stroke-width="3" transform="rotate(25 144 112)"/>` +
+            `<ellipse cx="62" cy="76" rx="9" ry="14" fill="#1b1b2f"/><ellipse cx="98" cy="76" rx="9" ry="14" fill="#1b1b2f"/>` +
+            `<ellipse cx="80" cy="116" rx="10" ry="14" fill="#1b1b2f"/>` +
+            `<circle cx="44" cy="100" r="7" fill="#ffb3c7" opacity=".6"/><circle cx="116" cy="100" r="7" fill="#ffb3c7" opacity=".6"/></g>`;
+          return svg("hw-ghost", "0 -12 160 212", t);
+        }
+
+        // Wrapped candies, one per letter of the company name
+        function candies(text) {
+          const chars = [...text.toUpperCase()];
+          const letters = chars.filter((c) => c.trim() !== "").length;
+          const palette = [["#ff8c1a", "#b85200"], ["#8e44ad", "#5b2a73"], ["#43a047", "#256b29"], ["#e53935", "#8f1d1b"]];
+          let i = 0;
+          const items = chars.map((ch) => {
+            if (ch.trim() === "") return `<svg viewBox="0 0 120 80" style="width:calc(var(--size)*.5)"></svg>`;
+            const [fill, edge] = palette[i % palette.length];
+            const tilt = i++ % 2 ? 6 : -6;
+            return `<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${tilt}deg)">` +
+              `<polygon points="2,22 30,40 2,58" fill="${fill}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>` +
+              `<polygon points="118,22 90,40 118,58" fill="${fill}" stroke="${edge}" stroke-width="3" stroke-linejoin="round"/>` +
+              `<rect x="22" y="8" width="76" height="64" rx="30" fill="${fill}" stroke="${edge}" stroke-width="3"/>` +
+              `<path d="M34,22 Q60,10 86,22" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".45"/>` +
+              `<path d="M30,16 L38,64 M90,16 L82,64" stroke="#fff" stroke-width="3" opacity=".25"/>` +
+              `<text x="60" y="55" text-anchor="middle" font-family="Arial Black, Helvetica, Arial, sans-serif" font-weight="900" font-size="38" fill="#fff" stroke="${edge}" stroke-width="1.5" paint-order="stroke">${esc(ch)}</text>` +
+              `</svg>`;
+          });
+          return `<div class="hw-candy" style="--n:${Math.max(letters, 1)}">${items.join("")}</div>`;
+        }
+
+        // ---------------- Apply ----------------
+
+        const THEMES = {
+          december: () => garland() + stockings(company) + snowman() + tree(),
+          october: () => ghost() + cobwebSpider() + pumpkins() + candies(company),
+        };
+
+        let current;
+        function apply() {
+          const theme = resolveTheme();
+          if (theme === current) return;
+          current = theme;
+          overlay.innerHTML = theme ? THEMES[theme]() : "";
+        }
+
+        apply();
+        // "auto" should roll over on its own for long-running signage
+        if (ALIASES[requested] === "auto") setInterval(apply, 60 * 60 * 1000);
+      })();
     </script>
   </body>
 </html>

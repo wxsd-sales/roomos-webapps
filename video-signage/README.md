@@ -36,6 +36,16 @@ This Web App makes it easier to display a YouTube playlist or video on loop. You
     ```
     https://wxsd-sales.github.io/roomos-webapps/video-signage#videoId=<YouTube Video Id>
     ```
+    Seasonal Theme Examples (all SVG overlays drawn above the video):
+    ```
+    https://wxsd-sales.github.io/roomos-webapps/video-signage#theme=december&company=EXAMPLE
+    https://wxsd-sales.github.io/roomos-webapps/video-signage#theme=october
+    https://wxsd-sales.github.io/roomos-webapps/video-signage#theme=auto
+    ```
+    - ``theme=december`` / ``theme=october`` always force that theme, whatever the date.
+    - ``theme=auto`` applies the December theme in December and the October theme in October, and no theme in any other month.
+    - ``company`` sets the text spelled out on the Christmas stockings and the Halloween candies (default ``CISCO``, max 16 characters).
+
 4.  Set the ``Signage Mode`` field to ``On``
     
     
