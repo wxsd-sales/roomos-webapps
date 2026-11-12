@@ -103,8 +103,39 @@
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
       let player;
-      function onYouTubeIframeAPIReady() {
+      // Set once we've had to fall back to muted playback (see escalation below)
+      let forceMute = hashes?.mute === "1" || hashes?.mute === "true";
+
+      function createPlayer() {
         const { width, height } = getPlayerSize();
+
+        // player.destroy() removes the iframe and its container, so make sure
+        // there is a fresh #player element to attach to.
+        if (!document.getElementById("player")) {
+          const el = document.createElement("div");
+          el.id = "player";
+          document.body.insertBefore(el, document.body.firstChild);
+        }
+
+        const common = {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          cc_load_policy: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          ...(forceMute ? { mute: 1 } : {}),
+        };
+
+        const events = {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError,
+          onAutoplayBlocked: onAutoplayBlocked,
+        };
 
         if (videoId) {
           player = new YT.Player("player", {
@@ -112,50 +143,34 @@
             width,
             videoId,
             playerVars: {
-              autoplay: 1,
+              ...common,
               loop,
-              controls: 0,
-              disablekb: 1,
-              fs: 0,
-              iv_load_policy: 3,
-              cc_load_policy: 0,
-              modestbranding: 1,
               start,
-              rel: 0,
               // YouTube only loops a single video when playlist is also set to that video id
               ...(loop === 1 ? { playlist: videoId } : {}),
             },
-            events: {
-              onReady: onPlayerReady,
-              onStateChange: onPlayerStateChange,
-              onError: onPlayerError,
-            },
+            events,
           });
         } else {
           player = new YT.Player("player", {
             height,
             width,
-            playerVars: {
-              autoplay: 1,
-              loop: 1,
-              controls: 0,
-              disablekb: 1,
-              fs: 0,
-              iv_load_policy: 3,
-              cc_load_policy: 0,
-              modestbranding: 1,
-              list,
-              rel: 0
-            },
-            events: {
-              onReady: onPlayerReady,
-              onStateChange: onPlayerStateChange,
-              onError: onPlayerError,
-            },
+            playerVars: { ...common, loop: 1, list },
+            events,
           });
         }
+      }
 
+      function onYouTubeIframeAPIReady() {
+        createPlayer();
         window.addEventListener("resize", onWindowResize);
+      }
+
+      function onAutoplayBlocked() {
+        console.warn("Autoplay was blocked by the browser - falling back to muted playback");
+        forceMute = true;
+        player?.mute?.();
+        player?.playVideo?.();
       }
 
       let resizeTimeout;
@@ -193,11 +208,56 @@
       // The IFrame API has no "buffering finished" event, and the PLAYING state
       // can be reported while playback is actually frozen. The only reliable
       // ground truth is whether getCurrentTime() keeps advancing, so we poll and
-      // nudge playVideo() whenever the player is stuck (buffering, unstarted, or
-      // "playing" but not progressing).
+      // escalate whenever the player is stuck (buffering, unstarted, or
+      // "playing" but not progressing):
+      //   1. nudge playVideo()
+      //   2. mute (browsers block unmuted autoplay without a user gesture,
+      //      which signage never has) and play again
+      //   3. reload the playlist/video via the API
+      //   4. destroy and rebuild the whole player (muted)
+      let stuckChecks = 0;
+      let lastRebuild = 0;
+
+      function describePlayer() {
+        try {
+          return {
+            state: stateNames[player.getPlayerState()] ?? "UNKNOWN",
+            time: player.getCurrentTime?.(),
+            muted: player.isMuted?.(),
+            volume: player.getVolume?.(),
+            url: player.getVideoUrl?.(),
+            playlistIndex: player.getPlaylistIndex?.(),
+            quality: player.getPlaybackQuality?.(),
+          };
+        } catch (e) {
+          return { error: String(e) };
+        }
+      }
+
+      function reloadContent() {
+        if (videoId) {
+          player.loadVideoById({ videoId, startSeconds: start });
+        } else {
+          player.loadPlaylist({ list, listType: "playlist", index: 0 });
+        }
+      }
+
+      function rebuildPlayer() {
+        lastRebuild = Date.now();
+        forceMute = true;
+        try {
+          clearInterval(playbackMonitor);
+          player.destroy();
+        } catch (e) {
+          console.warn("player.destroy() failed", e);
+        }
+        createPlayer();
+      }
+
       function startPlaybackMonitor() {
         clearInterval(playbackMonitor);
         lastTime = -1;
+        stuckChecks = 0;
         playbackMonitor = setInterval(function () {
           if (!player?.getPlayerState) return;
 
@@ -211,12 +271,28 @@
             state === YT.PlayerState.UNSTARTED ||
             (state === YT.PlayerState.PLAYING && stalled);
 
-          if (notProgressing) {
-            console.warn("Playback not progressing - nudging playVideo()", {
-              state: stateNames[state] ?? "UNKNOWN",
-              time,
-            });
+          if (!notProgressing) {
+            stuckChecks = 0;
+            return;
+          }
+
+          stuckChecks++;
+          console.warn(`Playback not progressing (check ${stuckChecks})`, describePlayer());
+
+          if (stuckChecks <= 2) {
             player.playVideo();
+          } else if (stuckChecks === 3) {
+            console.warn("Still stuck - muting and retrying");
+            forceMute = true;
+            player.mute();
+            player.playVideo();
+          } else if (stuckChecks === 5) {
+            console.warn("Still stuck - reloading content");
+            player.mute();
+            reloadContent();
+          } else if (stuckChecks >= 8 && Date.now() - lastRebuild > 30000) {
+            console.warn("Still stuck - rebuilding player");
+            rebuildPlayer();
           }
         }, PLAYBACK_MONITOR_MS);
       }
